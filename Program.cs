@@ -1,7 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using MinimalApiNet6;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+//Adding logger to the app.
+var logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .CreateLogger();
+builder.Logging.ClearProviders();
+builder.Logging.AddSerilog(logger); 
 
 // Add services to the container.
 
@@ -34,6 +43,7 @@ async Task<IEnumerable<SuperHero>> GetAllHeroes(DataContext context) =>
     await context.SuperHeroes.ToListAsync();
 
 app.MapGet("/", () => {
+    logger.Information("Super Hero DB executing...");
     return "Welcome to the Super Hero DB! ❤️";
 });
 
