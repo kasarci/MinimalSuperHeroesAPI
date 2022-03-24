@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 using MinimalApiNet6;
 using Serilog;
 
@@ -10,14 +11,12 @@ var logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .CreateLogger();
 builder.Logging.ClearProviders();
-builder.Logging.AddSerilog(logger); 
+builder.Logging.AddSerilog(logger);
 
 // Add services to the container.
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
 builder.Services.AddDbContext<DataContext>(
             dbContextOptions => dbContextOptions
                 .UseMySql(builder.Configuration["DefaultConnection"], new MySqlServerVersion(new Version(8, 0, 27)))
@@ -27,6 +26,59 @@ builder.Services.AddDbContext<DataContext>(
                 .EnableSensitiveDataLogging()
                 .EnableDetailedErrors()
         );
+
+var securityScheme = new OpenApiSecurityScheme()
+{
+    Name = "Authorisation",
+    Type = SecuritySchemeType.ApiKey,
+    Scheme = "Bearer",
+    BearerFormat = "JWT",
+    In = ParameterLocation.Header,
+    Description = "JWT Authentication for SuperHeroes."
+};
+
+var securityRequirements = new OpenApiSecurityRequirement()
+{
+    {
+        new OpenApiSecurityScheme
+        {
+            Reference = new OpenApiReference
+            {
+                Type = ReferenceType.SecurityScheme,
+                Id = "Bearer"
+            }
+        },
+        new string[] {}
+    }
+};
+
+var contactInfo = new OpenApiContact() 
+{
+    Name = "Kasarci",
+    Url = new Uri("https://www.github.com/kasarci")
+};
+
+var license = new OpenApiLicense() 
+{
+    Name = "Free License"
+};
+
+var info = new OpenApiInfo() 
+{
+    Version = "V1",
+    Title = "SuperHero API with JWT authentication.",
+    Contact = contactInfo,
+    License = license
+};
+
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options => 
+{
+    options.SwaggerDoc("v1", info);
+    options.AddSecurityDefinition("Bearer", securityScheme);
+    options.AddSecurityRequirement(securityRequirements);
+});
 
 var app = builder.Build();
 
@@ -39,10 +91,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-async Task<IEnumerable<SuperHero>> GetAllHeroes(DataContext context) => 
+async Task<IEnumerable<SuperHero>> GetAllHeroes(DataContext context) =>
     await context.SuperHeroes.ToListAsync();
 
-app.MapGet("/", () => {
+app.MapGet("/", () =>
+{
     logger.Information("Super Hero DB executing...");
     return "Welcome to the Super Hero DB! ❤️";
 });
@@ -50,21 +103,23 @@ app.MapGet("/", () => {
 app.MapGet("/superhero", async (DataContext context) =>
     await context.SuperHeroes.ToListAsync());
 
-app.MapGet("/superhero/{id}", async(DataContext context, int id) =>
-    await context.SuperHeroes.FindAsync(id) is SuperHero hero ? 
+app.MapGet("/superhero/{id}", async (DataContext context, int id) =>
+    await context.SuperHeroes.FindAsync(id) is SuperHero hero ?
     Results.Ok(hero) :
     Results.NotFound("Sorry, hero not found. 😔 "));
 
-app.MapPost("/superhero", async (DataContext context, SuperHero hero) => {
+app.MapPost("/superhero", async (DataContext context, SuperHero hero) =>
+{
     await context.SuperHeroes.AddAsync(hero);
     await context.SaveChangesAsync();
     Results.Ok(await GetAllHeroes(context));
 });
 
-app.MapPut("/superhero/{id}", async (DataContext context, SuperHero hero, int id) => {
+app.MapPut("/superhero/{id}", async (DataContext context, SuperHero hero, int id) =>
+{
     var dbHero = await context.SuperHeroes.FindAsync(id);
-    
-    if(dbHero is null) return Results.NotFound("Sorry, hero not found. 😔 ");
+
+    if (dbHero is null) return Results.NotFound("Sorry, hero not found. 😔 ");
 
     dbHero.Firstname = hero.Firstname;
     dbHero.Lastname = hero.Lastname;
@@ -73,14 +128,15 @@ app.MapPut("/superhero/{id}", async (DataContext context, SuperHero hero, int id
     return Results.Ok(await GetAllHeroes(context));
 });
 
-app.MapDelete("/superhero/{id}", async (DataContext context, int id) => {
+app.MapDelete("/superhero/{id}", async (DataContext context, int id) =>
+{
     var dbHero = await context.SuperHeroes.FindAsync(id);
-    
-    if(dbHero is null) return Results.NotFound("Sorry, hero not found. 😔 ");
+
+    if (dbHero is null) return Results.NotFound("Sorry, hero not found. 😔 ");
 
     context.SuperHeroes.Remove(dbHero);
     await context.SaveChangesAsync();
-    
+
     return Results.Ok(await GetAllHeroes(context));
 });
 
