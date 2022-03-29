@@ -35,7 +35,7 @@ builder.Services.AddDbContext<DataContext>(
 
 var securityScheme = new OpenApiSecurityScheme()
 {
-    Name = "Authorisation",
+    Name = "Authorization",
     Type = SecuritySchemeType.ApiKey,
     Scheme = "Bearer",
     BearerFormat = "JWT",
@@ -142,11 +142,12 @@ app.MapPost("/accounts/login", [AllowAnonymous] (UserDto user) => {
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             }),
             Expires = DateTime.Now.AddMinutes(5),
-            Audience = issuer,
+            Audience = audience,
+            Issuer = issuer,
             SigningCredentials = credentials
         };
 
-        var token = jwtTokenHandler.CreateToken(tokenDescriptor);
+        var token = jwtTokenHandler.CreateToken(tokenDescriptor); 
         var jwtToken = jwtTokenHandler.WriteToken(token);
 
         return Results.Ok(jwtToken);
@@ -163,7 +164,7 @@ app.MapGet("/", () =>
 app.MapGet("/superhero", [Authorize] async (DataContext context) =>
     await context.SuperHeroes.ToListAsync());
 
-app.MapGet("/superhero/{id}", async (DataContext context, int id) =>
+app.MapGet("/superhero/{id}", [Authorize] async (DataContext context, int id) =>
     await context.SuperHeroes.FindAsync(id) is SuperHero hero ?
     Results.Ok(hero) :
     Results.NotFound("Sorry, hero not found. 😔 "));
